@@ -778,6 +778,14 @@ void PathFinder::updateFilter()
 
         m_filter.setIncludeFlags(includedFlags);
     }
+    if (m_sourceUnit->GetMapId() == 649 || m_sourceUnit->GetMapId() == 631) // Trial of the Crusader and Icecrown Citadel
+    {
+        uint32 navFlags = m_sourceUnit->GetMap()->GetNavFlags();
+        if (navFlags & NAV_GO_1)
+            m_filter.setIncludeFlags(m_filter.getIncludeFlags() | NAV_GO_1);
+        else
+            m_filter.setIncludeFlags(m_filter.getIncludeFlags() & ~NAV_GO_1);
+    }
 }
 
 NavTerrain PathFinder::getNavTerrain(float x, float y, float z) const

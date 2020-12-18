@@ -59,8 +59,13 @@ target_include_directories(vmaplib
 )
 
 add_library(mmaplib STATIC
+    ./src/MangosMap.h
+    ./src/MMapCommon.h
+    ./src/IntermediateValues.h
     ./src/IntermediateValues.cpp
+    ./src/MapBuilder.h
     ./src/MapBuilder.cpp
+    ./src/TerrainBuilder.h
     ./src/TerrainBuilder.cpp
     ./src/VMapExtensions.cpp
 )

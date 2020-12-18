@@ -368,6 +368,10 @@ class Map : public GridRefManager<NGridType>
         void AddTransport(Transport* transport);
         void RemoveTransport(Transport* transport);
 
+        uint32 GetNavFlags() { return m_navFlags; }
+        void SetNavFlag(uint32 flag) { m_navFlags |= flag; }
+        void RemoveNavFlag(uint32 flag) { m_navFlags &= ~flag; }
+
     private:
         void LoadMapAndVMap(int gx, int gy);
 
@@ -479,6 +483,8 @@ class Map : public GridRefManager<NGridType>
 
         ZoneDynamicInfoMap m_zoneDynamicInfo;
         uint32 i_defaultLight;
+
+        uint32 m_navFlags;
 };
 
 class WorldMap : public Map

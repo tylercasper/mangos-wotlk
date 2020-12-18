@@ -94,6 +94,11 @@ namespace VMAP
                     // entry->second.iPos += Vector3(533.33333f*32, 533.33333f*32, 0.f);
                     entry->second.iBound = entry->second.iBound + Vector3(533.33333f * 32, 533.33333f * 32, 0.f);
                 }
+                if (entry->second.name == "Coliseum_Intact_Floor.wmo")
+                {
+                    printf("Encountered coliseum floor. skipping");
+                    continue;
+                }
                 mapSpawns.push_back(&(entry->second));
                 spawnedModelFiles.insert(entry->second.name);
             }

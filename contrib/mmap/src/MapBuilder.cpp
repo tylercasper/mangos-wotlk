@@ -28,6 +28,8 @@
 #include <climits>
 #include <fstream>
 
+#include <G3D/Quat.h>
+
 using namespace VMAP;
 
 void from_json(const json& j, rcConfig& config)
@@ -236,7 +238,7 @@ namespace MMAP
         rcCalcGridSize(config.bmin, config.bmax, config.cs, &config.width, &config.height);
 
         Tile tile;
-        buildCommonTile(modelName.data(), tile, config, tVerts, tVertCount, tTris, tTriCount, nullptr, 0, nullptr, 0, 0);
+        buildCommonTile(modelName.data(), tile, config, tVerts, tVertCount, tTris, tTriCount, nullptr, nullptr, 0, nullptr, 0, nullptr);
 
         IntermediateValues iv;
         iv.polyMesh = tile.pmesh;
@@ -584,6 +586,71 @@ namespace MMAP
         if (!meshData.solidVerts.size() && !meshData.liquidVerts.size())
             return;
 
+        meshData.solidType.resize(meshData.solidTris.size() / 3);
+        std::fill(meshData.solidType.begin(), meshData.solidType.end(), NAV_GROUND);
+
+        if (mapID == 649 && (tileX == 30 || tileX == 31) && (tileY == 30 || tileY == 31)) // Trial of the Crusader
+        {
+            WorldModel m;
+            if (!m.readFile("vmaps/Coliseum_Intact_Floor.wmo.vmo"))
+            {
+                printf("* Unable to open file\n");
+                return;
+            }
+
+            // Load model data into navmesh
+            vector<GroupModel> groupModels;
+            m.getGroupModels(groupModels);
+
+            // all M2s need to have triangle indices reversed
+            // bool isM2 = modelName.find(".m2") != modelName.npos || modelName.find(".M2") != modelName.npos;
+            bool isM2 = false;
+
+            G3D::Vector3 pos(563.53472900390625, 177.3090362548828125, 398.5718994140625);
+            G3D::Quat rot(0, 0, sin(G3D::pi() / 4), cos(G3D::pi() / 4));
+            G3D::Matrix3 matrix = rot.toRotationMatrix();
+            printf("bla");
+            for (vector<GroupModel>::iterator it = groupModels.begin(); it != groupModels.end(); ++it)
+            {
+                // transform data
+                vector<Vector3> tempVertices;
+                vector<MeshTriangle> tempTriangles;
+                WmoLiquid* liquid = nullptr;
+
+                (*it).getMeshData(tempVertices, tempTriangles, liquid);
+
+                for (auto& vertex : tempVertices)
+                {
+                    vertex.x = -vertex.x;
+                    vertex.y = -vertex.y;
+                    vertex = (vertex * matrix) + pos;
+                }
+
+                for (auto data : tempVertices)
+                    printf("%f %f %f\n", data.x, data.y, data.z);
+
+                int offset = meshData.solidVerts.size() / 3;
+
+                G3D::Array<uint8> tempTypes;
+                tempTypes.resize(tempTriangles.size());
+                std::fill(tempTypes.begin(), tempTypes.end(), NAV_GO_1);
+
+                TerrainBuilder::copyVertices(tempVertices, meshData.solidVerts);
+                TerrainBuilder::copyIndices(tempTriangles, meshData.solidTris, offset, isM2);
+                meshData.solidType.append(tempTypes);
+
+                //int offset = meshData.liquidVerts.size() / 3;
+
+                //G3D::Array<uint8> tempTypes;
+                //tempTypes.resize(tempVertices.size() / 3);
+                //std::fill(tempTypes.begin(), tempTypes.end(), NAV_GO_1);
+
+                //TerrainBuilder::copyVertices(tempVertices, meshData.liquidVerts);
+                //TerrainBuilder::copyIndices(tempTriangles, meshData.liquidTris, offset, isM2);
+                //meshData.liquidType.append(tempTypes);
+            }
+        }
+
         // remove unused vertices
         TerrainBuilder::cleanVertices(meshData.solidVerts, meshData.solidTris);
         TerrainBuilder::cleanVertices(meshData.liquidVerts, meshData.liquidTris);
@@ -697,6 +764,7 @@ namespace MMAP
         int tVertCount = meshData.solidVerts.size() / 3;
         int* tTris = meshData.solidTris.getCArray();
         int tTriCount = meshData.solidTris.size() / 3;
+        uint8* tTriFlags = meshData.solidType.getCArray();
 
         float* lVerts = meshData.liquidVerts.getCArray();
         int lVertCount = meshData.liquidVerts.size() / 3;
@@ -741,7 +809,7 @@ namespace MMAP
                 tbmin[1] = tileCfg.bmin[2];
                 tbmax[0] = tileCfg.bmax[0];
                 tbmax[1] = tileCfg.bmax[2];
-                buildCommonTile(tileString, tile, tileCfg, tVerts, tVertCount, tTris, tTriCount, lVerts, lVertCount, lTris, lTriCount, lTriFlags);
+                buildCommonTile(tileString, tile, tileCfg, tVerts, tVertCount, tTris, tTriCount, tTriFlags, lVerts, lVertCount, lTris, lTriCount, lTriFlags);
             }
         }
 
@@ -793,9 +861,17 @@ namespace MMAP
 
         // set polygons as walkable
         // TODO: special flags for DYNAMIC polygons, ie surfaces that can be turned on and off
+        std::set<uint8> values;
         for (int i = 0; i < iv.polyMesh->npolys; ++i)
+        {
+            values.insert(iv.polyMesh->areas[i]);
             if (iv.polyMesh->areas[i] & RC_WALKABLE_AREA)
                 iv.polyMesh->flags[i] = iv.polyMesh->areas[i];
+        }
+        printf("Areas\n");
+        for (auto& data : values)
+            printf("%u ", data);
+        printf("Areas\n");
 
         // setup mesh parameters
         dtNavMeshCreateParams params;
@@ -938,7 +1014,7 @@ namespace MMAP
         }
     }
 
-    bool MapBuilder::buildCommonTile(const char* tileString, Tile& tile, rcConfig& tileCfg, float* tVerts, int tVertCount, int* tTris, int tTriCount, float* lVerts, int lVertCount,
+    bool MapBuilder::buildCommonTile(const char* tileString, Tile& tile, rcConfig& tileCfg, float* tVerts, int tVertCount, int* tTris, int tTriCount, uint8* tTriFlags, float* lVerts, int lVertCount,
                                      int* lTris, int lTriCount, uint8* lTriFlags)
     {
         // Build heightfield for walkable area
@@ -950,11 +1026,8 @@ namespace MMAP
         }
 
         // mark all walkable tiles, both liquids and solids
-        unsigned char* triFlags = new unsigned char[tTriCount];
-        memset(triFlags, NAV_GROUND, tTriCount * sizeof(unsigned char));
-        rcClearUnwalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngle, tVerts, tVertCount, tTris, tTriCount, triFlags);
-        rcRasterizeTriangles(m_rcContext, tVerts, tVertCount, tTris, triFlags, tTriCount, *tile.solid, tileCfg.walkableClimb);
-        delete[] triFlags;
+        rcClearUnwalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngle, tVerts, tVertCount, tTris, tTriCount, tTriFlags);
+        rcRasterizeTriangles(m_rcContext, tVerts, tVertCount, tTris, tTriFlags, tTriCount, *tile.solid, tileCfg.walkableClimb);
 
         rcFilterLowHangingWalkableObstacles(m_rcContext, tileCfg.walkableClimb, *tile.solid);
         rcFilterLedgeSpans(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid);

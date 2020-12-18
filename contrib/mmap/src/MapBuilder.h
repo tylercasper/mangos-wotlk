@@ -106,7 +106,7 @@ namespace MMAP
             void buildNavMesh(uint32 mapID, dtNavMesh*& navMesh);
 
             void buildTile(uint32 mapID, uint32 tileX, uint32 tileY, dtNavMesh* navMesh, uint32 curTile, uint32 tileCount);
-            bool buildCommonTile(const char* tileString, Tile& tile, rcConfig& tileCfg, float* tVerts, int tVertCount, int* tTris, int tTriCount, float* lVerts, int lVertCount,
+            bool buildCommonTile(const char* tileString, Tile& tile, rcConfig& tileCfg, float* tVerts, int tVertCount, int* tTris, int tTriCount, uint8* tTriFlags, float* lVerts, int lVertCount,
                                  int* lTris, int lTriCount, uint8* lTriFlags);
 
             // move map building
