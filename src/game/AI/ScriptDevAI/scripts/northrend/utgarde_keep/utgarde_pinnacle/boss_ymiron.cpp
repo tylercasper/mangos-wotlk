@@ -113,6 +113,7 @@ struct boss_ymironAI : public ScriptedAI
 
         for (uint8 i = 0; i < MAX_BOATS; ++i)
             m_vuiBoatPhases.push_back(i);
+        m_rng = std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count());
 
         Reset();
     }
@@ -140,6 +141,8 @@ struct boss_ymironAI : public ScriptedAI
 
     std::vector<uint8> m_vuiBoatPhases;
 
+    std::default_random_engine m_rng;
+
     void Reset() override
     {
         m_uiFetidRotTimer           = urand(8000, 13000);
@@ -161,7 +164,7 @@ struct boss_ymironAI : public ScriptedAI
         m_uiCurrentSpiritGuid.Clear();
 
         // Randomize spirit order
-        std::random_shuffle(m_vuiBoatPhases.begin(), m_vuiBoatPhases.end());
+        std::shuffle(m_vuiBoatPhases.begin(), m_vuiBoatPhases.end(), m_rng);
     }
 
     void Aggro(Unit* /*pWho*/) override
